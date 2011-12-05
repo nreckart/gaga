@@ -164,6 +164,30 @@ describe Gaga do
       @store[key] = "value"
       @store.log(key).first['message'].must_equal("set '#{key}'")
     end
+    
+    it 'limits the number of logs returned' do
+      commit_count = 30
+      commit_count.times do |i|
+        @store[key] = "Commit #{i}"
+      end
+      
+      @store.log(key, {:limit => 5}).size.must_equal 5
+      @store.log(key, {:limit => 29}).size.must_equal 29
+      @store.log(key, {:limit => 31}).size.must_equal 30
+      @store.log(key, {:limit => false}).size.must_equal 30
+      @store.log(key).size.must_equal Gaga::DEFAULT_LOG_LIMIT
+    end
+    
+    it 'includes past values in log' do
+      expected = []
+      (1..3).each do |i|
+        value = "Commit #{i}"
+        @store[key] = value
+        expected << value
+      end
+      
+      @store.log(key, {:include_values => true}).map{|l| l['value']}.must_equal expected.reverse
+    end
   end
   
   it 'creates a bare repository' do
@@ -183,5 +207,4 @@ describe Gaga do
     
     remove_tmpdir!(tmp_bare)
   end
-
 end
