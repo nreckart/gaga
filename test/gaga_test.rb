@@ -188,6 +188,18 @@ describe Gaga do
       
       @store.log(key, {:include_values => true}).map{|l| l['value']}.must_equal expected.reverse
     end
+    
+    it 'returns GagaCommit records' do
+      commit_count = 10
+      commit_count.times do |i|
+        @store[key] = "Commit #{i}"
+      end
+      
+      logs = @store.log(key)
+      logs.each do |l|
+        l.class.must_equal GagaCommit
+      end
+    end
   end
   
   it 'creates a bare repository' do

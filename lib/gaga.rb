@@ -1,6 +1,7 @@
 require 'yaml'
 require 'grit'
 require 'gaga/version'
+require 'gaga_commit'
 
 class Gaga
   DEFAULT_LOG_LIMIT = 20
@@ -130,7 +131,7 @@ class Gaga
   #  @store.log('key', {:include_values => true}) #=> [{"message"=>"Updated key", ... , "value" => "The value"}]
   #  @store.log('key', {:limit => 10}) #=> Will return, at most, the last 10 log entries.
   #
-  # Returns Array of commit data
+  # Returns an Array of GagaCommit records
   def log(key, options = {})
     options = {
       :include_values => false,
@@ -147,8 +148,8 @@ class Gaga
         l['value'] = get_commit(key, l['id'])
       }
     end
-    
-    logs
+
+    logs.collect{|l| GagaCommit.new(l)}
   end
 
   # Find the key if exists in the git repo
