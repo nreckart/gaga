@@ -16,6 +16,10 @@ class GagaCommit
     @authored_date ||= Time.parse(@data['authored_date'])
   end
   
+  def to_hash
+    @data
+  end
+  
   def method_missing(mthd, *args)
     @data[mthd.to_s]
   end
