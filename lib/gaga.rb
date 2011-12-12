@@ -1,8 +1,10 @@
 require 'yaml'
 require 'grit'
 require 'gaga/version'
+require 'gaga_commit'
 
 class Gaga
+  DEFAULT_LOG_LIMIT = 20
 
   def initialize(options = {})
     @author = options.delete(:author)
@@ -59,6 +61,22 @@ class Gaga
   def [](key)
     get(key)
   end
+  
+  # Retrieve the value for a specific Git commit SHA
+  #
+  # key - The key whose value will be retrieved
+  # id  - The SHA1 identifier of the commit containing the value wanted
+  #
+  # Example:
+  #   @store.get_commit('key', '01af80c2a5bd588202ce4ee7da8a3488a2698357')
+  #
+  # Returns the value for the key at the given commit
+  def get_commit(key, id)
+    key = key_for(key)
+    commit = git.commit(id)
+    blob = commit.tree / key
+    decode(blob.data) if blob
+  end
 
   # Returns an array of key names contained in store
   #
@@ -95,14 +113,43 @@ class Gaga
     end
   end
 
-  # The commit log for the given key
+  # The commit log for the given key. Setting the 'include_values' options to true will
+  # include a 'value' attribute in the logs, which corresponds to the value of the key
+  # at the time of the commit. You can also limit the number of log entries that are
+  # returned via the 'limit' option.
   #
-  # Example:
+  # key     - The key for which to retrieve log data
+  # options - A hash of options (default: {}):
+  #           :include_values - Boolean whether or not to include key values in the logs
+  #                             (default: false)
+  #           :limit - Integer representing the maximum number of log entries to retrieve.
+  #                    Use nil to return all log entries. 
+  #                    (default: Gaga::DEFAULT_LOG_LIMIT)
+  #
+  # Examples:
   #  @store.log('key') #=> [{"message"=>"Updated key"...}]
+  #  @store.log('key', {:include_values => true}) #=> [{"message"=>"Updated key", ... , "value" => "The value"}]
+  #  @store.log('key', {:limit => 10}) #=> Will return, at most, the last 10 log entries.
   #
-  # Returns Array of commit data
-  def log(key)
-    git.log(branch, key_for(key)).map{ |commit| commit.to_hash }
+  # Returns an Array of GagaCommit records
+  def log(key, options = {})
+    options = {
+      :include_values => false,
+      :limit => DEFAULT_LOG_LIMIT
+    }.merge(options)
+    
+    git_options = {}
+    git_options['n'] = options[:limit] if options[:limit]
+    
+    logs = git.log(branch, key_for(key), git_options).map{ |commit| commit.to_hash }
+    
+    if options[:include_values]
+      logs.each {|l|
+        l['value'] = get_commit(key, l['id'])
+      }
+    end
+
+    logs.collect{|l| GagaCommit.new(l)}
   end
 
   # Find the key if exists in the git repo
